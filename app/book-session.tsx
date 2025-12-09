@@ -1,17 +1,17 @@
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-  ActivityIndicator,
+    ActivityIndicator,
+    Alert,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from 'react-native';
-import { sessionApi, Session } from '../services/sessionApi';
 import { bookingApi } from '../services/bookingApi';
+import { Session, sessionApi } from '../services/sessionApi';
 
 export default function BookSessionScreen() {
   const [sessions, setSessions] = useState<Session[]>([]);
