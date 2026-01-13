@@ -26,6 +26,16 @@ export default function Index() {
           <Text style={styles.buttonText}>Réserver une session</Text>
         </TouchableOpacity>
       </View>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Classement</Text>
+        <TouchableOpacity
+          style={[styles.button, styles.buttonLeaderboard]}
+          onPress={() => router.push("/leaderboard")}
+        >
+          <Text style={[styles.buttonText, styles.buttonTextDark]}>Voir le classement</Text>
+        </TouchableOpacity>
+      </View>
     </ScrollView>
   );
 }
@@ -73,9 +83,15 @@ const styles = StyleSheet.create({
   buttonClient: {
     backgroundColor: "#4caf50",
   },
+  buttonLeaderboard: {
+    backgroundColor: "#FFD700",
+  },
   buttonText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
+  },
+  buttonTextDark: {
+    color: "#333",
   },
 });

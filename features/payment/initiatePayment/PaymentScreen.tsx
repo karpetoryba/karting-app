@@ -6,15 +6,21 @@ import {
     ScrollView,
     StyleSheet,
     Text,
+    TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
 
+import { formatLapTime, lapTimeApi, parseLapTime } from '../../../services/lapTimeApi';
 import { usePayment } from './usePayment';
 
 export default function PaymentScreen() {
   const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'cash' | 'other'>('card');
+  const [lapTimeInput, setLapTimeInput] = useState('');
+  const [isRecordingLapTime, setIsRecordingLapTime] = useState(false);
+  const [lapTimeRecorded, setLapTimeRecorded] = useState(false);
+  const [recordedTime, setRecordedTime] = useState<number | null>(null);
 
   const {
     booking,
@@ -40,22 +46,35 @@ export default function PaymentScreen() {
     }
   }, [error, isLoading]);
 
-  useEffect(() => {
-    if (isSuccess && payment?.status === 'completed') {
-      Alert.alert(
-        'Paiement réussi',
-        'Votre paiement a été effectué avec succès!\nVotre réservation est confirmée.',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              router.push('/');
-            },
-          },
-        ]
-      );
+  const handleRecordLapTime = async () => {
+    if (!booking) return;
+
+    const timeMs = parseLapTime(lapTimeInput);
+    if (!timeMs) {
+      Alert.alert('Format invalide', 'Le format attendu est M:SS.mmm (ex: 1:23.456)');
+      return;
     }
-  }, [isSuccess, payment]);
+
+    setIsRecordingLapTime(true);
+    try {
+      await lapTimeApi.recordLapTime(
+        booking.clientName,
+        booking.clientEmail,
+        booking.sessionIds[0],
+        timeMs
+      );
+      setLapTimeRecorded(true);
+      setRecordedTime(timeMs);
+      Alert.alert(
+        'Temps enregistré !',
+        `Votre temps de ${formatLapTime(timeMs)} a été enregistré. Consultez le classement pour voir votre position !`
+      );
+    } catch (err: any) {
+      Alert.alert('Erreur', err?.message || "Impossible d'enregistrer le temps");
+    } finally {
+      setIsRecordingLapTime(false);
+    }
+  };
 
   const handleInitiatePayment = async () => {
     const result = await initiatePayment(paymentMethod);
@@ -130,16 +149,72 @@ export default function PaymentScreen() {
       </View>
 
       {isPaymentCompleted ? (
-        <View style={styles.successCard}>
-          <Text style={styles.successTitle}>✓ Paiement effectué</Text>
-          <Text style={styles.successText}>
-            Votre réservation est confirmée. Vous recevrez un email de confirmation.
-          </Text>
-          <Text style={styles.paymentInfo}>ID de paiement: {payment?.id}</Text>
-          <Text style={styles.paymentInfo}>
-            Date: {payment?.completedAt ? formatDateTime(payment.completedAt) : ''}
-          </Text>
-        </View>
+        <>
+          <View style={styles.successCard}>
+            <Text style={styles.successTitle}>Paiement effectué</Text>
+            <Text style={styles.successText}>
+              Votre réservation est confirmée. Vous recevrez un email de confirmation.
+            </Text>
+            <Text style={styles.paymentInfo}>ID de paiement: {payment?.id}</Text>
+            <Text style={styles.paymentInfo}>
+              Date: {payment?.completedAt ? formatDateTime(payment.completedAt) : ''}
+            </Text>
+          </View>
+
+          {/* Formulaire de saisie du chrono */}
+          <View style={styles.lapTimeCard}>
+            <Text style={styles.lapTimeTitle}>Enregistrez votre chrono !</Text>
+            <Text style={styles.lapTimeDescription}>
+              Saisissez votre meilleur temps au tour pour apparaître dans le classement.
+            </Text>
+
+            {lapTimeRecorded && recordedTime ? (
+              <View style={styles.lapTimeRecordedContainer}>
+                <Text style={styles.lapTimeRecordedLabel}>Temps enregistré :</Text>
+                <Text style={styles.lapTimeRecordedValue}>{formatLapTime(recordedTime)}</Text>
+                <TouchableOpacity
+                  style={styles.viewLeaderboardButton}
+                  onPress={() => router.push('/leaderboard')}
+                >
+                  <Text style={styles.viewLeaderboardButtonText}>Voir le classement</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <>
+                <View style={styles.lapTimeInputContainer}>
+                  <TextInput
+                    style={styles.lapTimeInput}
+                    placeholder="1:23.456"
+                    value={lapTimeInput}
+                    onChangeText={setLapTimeInput}
+                    keyboardType="numbers-and-punctuation"
+                    editable={!isRecordingLapTime}
+                  />
+                  <Text style={styles.lapTimeFormat}>Format: M:SS.mmm</Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.lapTimeButton, isRecordingLapTime && styles.buttonDisabled]}
+                  onPress={handleRecordLapTime}
+                  disabled={isRecordingLapTime || !lapTimeInput}
+                >
+                  {isRecordingLapTime ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.lapTimeButtonText}>Enregistrer mon temps</Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.skipButton}
+                  onPress={() => router.push('/')}
+                >
+                  <Text style={styles.skipButtonText}>Passer cette étape</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </>
       ) : (
         <>
           <Text style={styles.sectionTitle}>Méthode de paiement</Text>
@@ -397,6 +472,94 @@ const styles = StyleSheet.create({
   },
   buttonTextSecondary: {
     color: '#007AFF',
+  },
+
+  // Lap time styles
+  lapTimeCard: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 2,
+    borderColor: '#FFD700',
+  },
+  lapTimeTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  lapTimeDescription: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  lapTimeInputContainer: {
+    marginBottom: 15,
+  },
+  lapTimeInput: {
+    backgroundColor: '#f5f5f5',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 15,
+    fontSize: 24,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    color: '#333',
+  },
+  lapTimeFormat: {
+    fontSize: 12,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 5,
+  },
+  lapTimeButton: {
+    backgroundColor: '#FFD700',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  lapTimeButtonText: {
+    color: '#333',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  skipButton: {
+    padding: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  skipButtonText: {
+    color: '#666',
+    fontSize: 14,
+  },
+  lapTimeRecordedContainer: {
+    alignItems: 'center',
+  },
+  lapTimeRecordedLabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 5,
+  },
+  lapTimeRecordedValue: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#007AFF',
+    marginBottom: 15,
+  },
+  viewLeaderboardButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+  },
+  viewLeaderboardButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 
