@@ -11,8 +11,29 @@ import {
     View,
 } from 'react-native';
 
-import { formatLapTime, lapTimeApi, parseLapTime } from '../../../services/lapTimeApi';
+import { fakeFetch, LapTime } from '../../../shared/fakeFetch';
+// import { realFetch } from '../../../shared/realFetch'; // Décommenter pour utiliser le vrai fetch
 import { usePayment } from './usePayment';
+
+// Convertir millisecondes en format MM:SS.mmm
+function formatLapTime(ms: number): string {
+  const minutes = Math.floor(ms / 60000);
+  const seconds = Math.floor((ms % 60000) / 1000);
+  const milliseconds = ms % 1000;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
+}
+
+// Parser un temps au format MM:SS.mmm en millisecondes
+function parseLapTime(timeStr: string): number | null {
+  const regex = /^(\d{1,2}):(\d{2})\.(\d{3})$/;
+  const match = timeStr.trim().match(regex);
+  if (!match) return null;
+  const minutes = parseInt(match[1], 10);
+  const seconds = parseInt(match[2], 10);
+  const milliseconds = parseInt(match[3], 10);
+  if (seconds >= 60) return null;
+  return minutes * 60000 + seconds * 1000 + milliseconds;
+}
 
 export default function PaymentScreen() {
   const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
@@ -22,6 +43,7 @@ export default function PaymentScreen() {
   const [lapTimeRecorded, setLapTimeRecorded] = useState(false);
   const [recordedTime, setRecordedTime] = useState<number | null>(null);
 
+  // Injection de dépendance: on passe fakeFetch (ou realFetch pour production)
   const {
     booking,
     payment,
@@ -30,7 +52,7 @@ export default function PaymentScreen() {
     error,
     isSuccess,
     initiatePayment,
-  } = usePayment(bookingId);
+  } = usePayment({ fetch: fakeFetch, bookingId });
 
   useEffect(() => {
     if (!bookingId) {
@@ -57,20 +79,29 @@ export default function PaymentScreen() {
 
     setIsRecordingLapTime(true);
     try {
-      await lapTimeApi.recordLapTime(
-        booking.clientName,
-        booking.clientEmail,
-        booking.sessionIds[0],
-        timeMs
-      );
-      setLapTimeRecorded(true);
-      setRecordedTime(timeMs);
-      Alert.alert(
-        'Temps enregistré !',
-        `Votre temps de ${formatLapTime(timeMs)} a été enregistré. Consultez le classement pour voir votre position !`
-      );
-    } catch (err: any) {
-      Alert.alert('Erreur', err?.message || "Impossible d'enregistrer le temps");
+      const response = await fakeFetch<LapTime>('/laptimes', {
+        method: 'POST',
+        body: {
+          pilotName: booking.clientName,
+          pilotEmail: booking.clientEmail,
+          sessionId: booking.sessionIds[0],
+          lapTimeMs: timeMs,
+        },
+      });
+
+      if (response.ok) {
+        setLapTimeRecorded(true);
+        setRecordedTime(timeMs);
+        Alert.alert(
+          'Temps enregistré !',
+          `Votre temps de ${formatLapTime(timeMs)} a été enregistré. Consultez le classement pour voir votre position !`
+        );
+      } else {
+        Alert.alert('Erreur', response.error || "Impossible d'enregistrer le temps");
+      }
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Impossible d'enregistrer le temps";
+      Alert.alert('Erreur', errorMessage);
     } finally {
       setIsRecordingLapTime(false);
     }

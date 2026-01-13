@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import React, { useState } from 'react';
+import { router } from "expo-router";
+import React, { useState } from "react";
 import {
   Alert,
   ScrollView,
@@ -8,22 +8,27 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-} from 'react-native';
+} from "react-native";
 
-import { useCreateSession } from './useCreateSession';
+import { fakeFetch } from "../../../shared/fakeFetch";
+//import { realFetch } from "../../../shared/realFetch"; // Décommenter pour utiliser le vrai fetch
+import { useCreateSession } from "./useCreateSession";
 
 export default function CreateSessionScreen() {
-  const [dateTime, setDateTime] = useState('');
-  const [time, setTime] = useState('');
-  const [duration, setDuration] = useState('');
-  const [availableKarts, setAvailableKarts] = useState('');
-  const [price, setPrice] = useState('');
+  const [dateTime, setDateTime] = useState("");
+  const [time, setTime] = useState("");
+  const [duration, setDuration] = useState("");
+  const [availableKarts, setAvailableKarts] = useState("");
+  const [price, setPrice] = useState("");
 
-  const { createSession, isLoading, error, isSuccess } = useCreateSession();
+  // Injection de dépendance: on passe fakeFetch (ou realFetch pour production)
+  const { createSession, isLoading, error, isSuccess } = useCreateSession({
+    fetch: fakeFetch,
+  });
 
   const handleCreateSession = async () => {
     if (!dateTime || !time || !duration || !availableKarts || !price) {
-      Alert.alert('Erreur', 'Veuillez remplir tous les champs');
+      Alert.alert("Erreur", "Veuillez remplir tous les champs");
       return;
     }
 
@@ -32,17 +37,20 @@ export default function CreateSessionScreen() {
     const priceNum = parseFloat(price);
 
     if (isNaN(durationNum) || durationNum <= 0) {
-      Alert.alert('Erreur', 'La durée doit être un nombre supérieur à 0');
+      Alert.alert("Erreur", "La durée doit être un nombre supérieur à 0");
       return;
     }
 
     if (isNaN(kartsNum) || kartsNum <= 0) {
-      Alert.alert('Erreur', 'Le nombre de karts doit être strictement supérieur à zéro');
+      Alert.alert(
+        "Erreur",
+        "Le nombre de karts doit être strictement supérieur à zéro"
+      );
       return;
     }
 
     if (isNaN(priceNum) || priceNum <= 0) {
-      Alert.alert('Erreur', 'Le prix doit être strictement supérieur à zéro');
+      Alert.alert("Erreur", "Le prix doit être strictement supérieur à zéro");
       return;
     }
 
@@ -50,13 +58,13 @@ export default function CreateSessionScreen() {
     const sessionDateTime = new Date(dateTimeString);
 
     if (isNaN(sessionDateTime.getTime())) {
-      Alert.alert('Erreur', 'Date ou heure invalide');
+      Alert.alert("Erreur", "Date ou heure invalide");
       return;
     }
 
     const now = new Date();
     if (sessionDateTime <= now) {
-      Alert.alert('Erreur', 'La date/heure doit être dans le futur');
+      Alert.alert("Erreur", "La date/heure doit être dans le futur");
       return;
     }
 
@@ -70,17 +78,17 @@ export default function CreateSessionScreen() {
     if (!newSession) return;
 
     Alert.alert(
-      'Succès',
+      "Succès",
       `Session créée avec succès!\nID: ${newSession.id}\nStatut: ${newSession.status}`,
       [
         {
-          text: 'OK',
+          text: "OK",
           onPress: () => {
-            setDateTime('');
-            setTime('');
-            setDuration('');
-            setAvailableKarts('');
-            setPrice('');
+            setDateTime("");
+            setTime("");
+            setDuration("");
+            setAvailableKarts("");
+            setPrice("");
             router.back();
           },
         },
@@ -89,11 +97,18 @@ export default function CreateSessionScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+    >
       <Text style={styles.title}>Créer une session</Text>
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
-      {isSuccess ? <Text style={styles.successText}>Session créée et publiée avec succès.</Text> : null}
+      {isSuccess ? (
+        <Text style={styles.successText}>
+          Session créée et publiée avec succès.
+        </Text>
+      ) : null}
 
       <View style={styles.formGroup}>
         <Text style={styles.label}>Date *</Text>
@@ -160,7 +175,9 @@ export default function CreateSessionScreen() {
         onPress={handleCreateSession}
         disabled={isLoading}
       >
-        <Text style={styles.buttonText}>{isLoading ? 'Création...' : 'Créer la session'}</Text>
+        <Text style={styles.buttonText}>
+          {isLoading ? "Création..." : "Créer la session"}
+        </Text>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -168,7 +185,9 @@ export default function CreateSessionScreen() {
         onPress={() => router.back()}
         disabled={isLoading}
       >
-        <Text style={[styles.buttonText, styles.buttonTextSecondary]}>Annuler</Text>
+        <Text style={[styles.buttonText, styles.buttonTextSecondary]}>
+          Annuler
+        </Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -177,7 +196,7 @@ export default function CreateSessionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: "#f5f5f5",
   },
   contentContainer: {
     padding: 20,
@@ -185,70 +204,68 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 20,
-    color: '#333',
-    textAlign: 'center',
+    color: "#333",
+    textAlign: "center",
   },
   formGroup: {
     marginBottom: 20,
   },
   label: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 8,
-    color: '#333',
+    color: "#333",
   },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    color: '#333',
+    color: "#333",
   },
   hint: {
     fontSize: 12,
-    color: '#666',
+    color: "#666",
     marginTop: 4,
   },
   button: {
-    backgroundColor: '#007AFF',
+    backgroundColor: "#007AFF",
     padding: 16,
     borderRadius: 8,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 10,
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonSecondary: {
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
     borderWidth: 1,
-    borderColor: '#007AFF',
+    borderColor: "#007AFF",
     marginTop: 10,
   },
   buttonText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   buttonTextSecondary: {
-    color: '#007AFF',
+    color: "#007AFF",
   },
   errorText: {
-    color: '#d32f2f',
+    color: "#d32f2f",
     marginBottom: 12,
-    textAlign: 'center',
-    fontWeight: '600',
+    textAlign: "center",
+    fontWeight: "600",
   },
   successText: {
-    color: '#2e7d32',
+    color: "#2e7d32",
     marginBottom: 12,
-    textAlign: 'center',
-    fontWeight: '600',
+    textAlign: "center",
+    fontWeight: "600",
   },
 });
-
-

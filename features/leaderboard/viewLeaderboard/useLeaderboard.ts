@@ -1,15 +1,21 @@
 import { useCallback, useState } from 'react';
 
-import {
-  formatLapTime,
-  lapTimeApi,
-  LeaderboardEntry,
-  PilotStats,
-} from '../../../services/lapTimeApi';
+import { FetchInterface } from '../../../shared/fetch';
+import { LeaderboardEntry, PilotStats } from '../../../shared/fakeFetch';
 
-export { formatLapTime };
+// Convertir millisecondes en format MM:SS.mmm
+export function formatLapTime(ms: number): string {
+  const minutes = Math.floor(ms / 60000);
+  const seconds = Math.floor((ms % 60000) / 1000);
+  const milliseconds = ms % 1000;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
+}
 
-export function useLeaderboard() {
+interface UseLeaderboardProps {
+  fetch: FetchInterface;
+}
+
+export function useLeaderboard({ fetch }: UseLeaderboardProps) {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [pilotStats, setPilotStats] = useState<PilotStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -20,14 +26,18 @@ export function useLeaderboard() {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await lapTimeApi.getLeaderboard(10);
-      setLeaderboard(data);
-    } catch (err: any) {
+      const response = await fetch<LeaderboardEntry[]>('/leaderboard?limit=10', { method: 'GET' });
+      if (response.ok && response.data) {
+        setLeaderboard(response.data);
+      } else {
+        setError(response.error || 'Impossible de charger le classement');
+      }
+    } catch (err: unknown) {
       setError('Impossible de charger le classement');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [fetch]);
 
   const loadPilotStats = useCallback(async (email: string) => {
     if (!email || !email.includes('@')) {
@@ -38,14 +48,18 @@ export function useLeaderboard() {
     setIsLoadingStats(true);
     setError(null);
     try {
-      const stats = await lapTimeApi.getPilotStats(email);
-      setPilotStats(stats);
-    } catch (err: any) {
+      const response = await fetch<PilotStats | null>(`/pilots/${encodeURIComponent(email)}/stats`, { method: 'GET' });
+      if (response.ok) {
+        setPilotStats(response.data || null);
+      } else {
+        setError(response.error || 'Impossible de charger vos statistiques');
+      }
+    } catch (err: unknown) {
       setError('Impossible de charger vos statistiques');
     } finally {
       setIsLoadingStats(false);
     }
-  }, []);
+  }, [fetch]);
 
   const clearPilotStats = useCallback(() => {
     setPilotStats(null);

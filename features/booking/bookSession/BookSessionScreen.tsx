@@ -11,12 +11,15 @@ import {
     View,
 } from 'react-native';
 
+import { fakeFetch } from '../../../shared/fakeFetch';
+// import { realFetch } from '../../../shared/realFetch'; // Décommenter pour utiliser le vrai fetch
 import { useBookSession } from './useBookSession';
 
 export default function BookSessionScreen() {
   const [clientName, setClientName] = useState('');
   const [clientEmail, setClientEmail] = useState('');
 
+  // Injection de dépendance: on passe fakeFetch (ou realFetch pour production)
   const {
     sessions,
     selectedSessions,
@@ -28,7 +31,7 @@ export default function BookSessionScreen() {
     toggleSessionSelection,
     calculateTotal,
     bookSessions,
-  } = useBookSession();
+  } = useBookSession({ fetch: fakeFetch });
 
   useEffect(() => {
     loadSessions();

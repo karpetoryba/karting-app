@@ -11,11 +11,14 @@ import {
   View,
 } from 'react-native';
 
+import { fakeFetch } from '../../../shared/fakeFetch';
+// import { realFetch } from '../../../shared/realFetch'; // Décommenter pour utiliser le vrai fetch
 import { formatLapTime, useLeaderboard } from './useLeaderboard';
 
 export default function LeaderboardScreen() {
   const [searchEmail, setSearchEmail] = useState('');
 
+  // Injection de dépendance: on passe fakeFetch (ou realFetch pour production)
   const {
     leaderboard,
     pilotStats,
@@ -25,7 +28,7 @@ export default function LeaderboardScreen() {
     loadLeaderboard,
     loadPilotStats,
     clearPilotStats,
-  } = useLeaderboard();
+  } = useLeaderboard({ fetch: fakeFetch });
 
   useEffect(() => {
     loadLeaderboard();

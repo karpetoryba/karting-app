@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react';
 
-import { Booking, bookingApi } from '../../../services/bookingApi';
-import { Payment, paymentApi } from '../../../services/paymentApi';
+import { FetchInterface } from '../../../shared/fetch';
+import { Booking, Payment } from '../../../shared/fakeFetch';
 
 type PaymentMethod = 'card' | 'cash' | 'other';
 
-export function usePayment(bookingId: string | undefined) {
+interface UsePaymentProps {
+  fetch: FetchInterface;
+  bookingId: string | undefined;
+}
+
+export function usePayment({ fetch, bookingId }: UsePaymentProps) {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [payment, setPayment] = useState<Payment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -25,23 +30,25 @@ export function usePayment(bookingId: string | undefined) {
     setError(null);
 
     try {
-      const bookingData = await bookingApi.getBookingById(bookingId);
-      if (!bookingData) {
-        setError('Réservation introuvable');
+      // Load booking
+      const bookingResponse = await fetch<Booking>(`/bookings/${bookingId}`, { method: 'GET' });
+      if (!bookingResponse.ok || !bookingResponse.data) {
+        setError(bookingResponse.error || 'Réservation introuvable');
         return;
       }
+      setBooking(bookingResponse.data);
 
-      setBooking(bookingData);
-
-      const existingPayment = await paymentApi.getPaymentByBookingId(bookingId);
-      if (existingPayment) {
-        setPayment(existingPayment);
-        if (existingPayment.status === 'completed') {
+      // Check for existing payment
+      const paymentResponse = await fetch<Payment | null>(`/payments/booking/${bookingId}`, { method: 'GET' });
+      if (paymentResponse.ok && paymentResponse.data) {
+        setPayment(paymentResponse.data);
+        if (paymentResponse.data.status === 'completed') {
           setIsSuccess(true);
         }
       }
-    } catch (err: any) {
-      setError(err?.message || 'Impossible de charger la réservation');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Impossible de charger la réservation';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -58,21 +65,41 @@ export function usePayment(bookingId: string | undefined) {
     setIsSuccess(false);
 
     try {
-      const newPayment = await paymentApi.initiatePayment(bookingId, paymentMethod);
-      setPayment(newPayment);
+      // Create payment
+      const createResponse = await fetch<Payment>('/payments', {
+        method: 'POST',
+        body: { bookingId, paymentMethod },
+      });
 
-      const processedPayment = await paymentApi.processPayment(newPayment.id);
-      setPayment(processedPayment);
+      if (!createResponse.ok || !createResponse.data) {
+        setError(createResponse.error || 'Impossible de créer le paiement');
+        return null;
+      }
 
-      if (processedPayment.status === 'completed') {
+      setPayment(createResponse.data);
+
+      // Process payment
+      const processResponse = await fetch<Payment>(`/payments/${createResponse.data.id}/process`, {
+        method: 'POST',
+      });
+
+      if (!processResponse.ok || !processResponse.data) {
+        setError(processResponse.error || 'Impossible de traiter le paiement');
+        return null;
+      }
+
+      setPayment(processResponse.data);
+
+      if (processResponse.data.status === 'completed') {
         setIsSuccess(true);
-        return processedPayment;
+        return processResponse.data;
       } else {
         setError("Le paiement n'a pas pu être traité. Veuillez réessayer.");
         return null;
       }
-    } catch (err: any) {
-      setError(err?.message || 'Une erreur est survenue lors du paiement');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Une erreur est survenue lors du paiement';
+      setError(errorMessage);
       return null;
     } finally {
       setIsProcessing(false);
@@ -90,5 +117,3 @@ export function usePayment(bookingId: string | undefined) {
     reloadBooking: loadBooking,
   };
 }
-
-

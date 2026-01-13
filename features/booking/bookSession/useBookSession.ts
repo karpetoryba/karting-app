@@ -1,9 +1,13 @@
 import { useCallback, useState } from 'react';
 
-import { bookingApi } from '../../../services/bookingApi';
-import { Session, sessionApi } from '../../../services/sessionApi';
+import { FetchInterface } from '../../../shared/fetch';
+import { Booking, Session } from '../../../shared/fakeFetch';
 
-export function useBookSession() {
+interface UseBookSessionProps {
+  fetch: FetchInterface;
+}
+
+export function useBookSession({ fetch }: UseBookSessionProps) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedSessions, setSelectedSessions] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -15,14 +19,18 @@ export function useBookSession() {
     setIsLoading(true);
     setError(null);
     try {
-      const publishedSessions = await sessionApi.getPublishedSessions();
-      setSessions(publishedSessions);
-    } catch (err: any) {
+      const response = await fetch<Session[]>('/sessions/published', { method: 'GET' });
+      if (response.ok && response.data) {
+        setSessions(response.data);
+      } else {
+        setError(response.error || 'Impossible de charger les sessions disponibles');
+      }
+    } catch (err: unknown) {
       setError('Impossible de charger les sessions disponibles');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [fetch]);
 
   const toggleSessionSelection = useCallback((sessionId: string) => {
     setSelectedSessions(prev => {
@@ -54,21 +62,31 @@ export function useBookSession() {
       setIsSuccess(false);
 
       try {
-        const booking = await bookingApi.createBooking(
-          selectedSessions,
-          clientName,
-          clientEmail
-        );
-        setIsSuccess(true);
-        return booking;
-      } catch (err: any) {
-        setError(err?.message || 'Une erreur est survenue lors de la réservation');
+        const response = await fetch<Booking>('/bookings', {
+          method: 'POST',
+          body: {
+            sessionIds: selectedSessions,
+            clientName,
+            clientEmail,
+          },
+        });
+
+        if (response.ok && response.data) {
+          setIsSuccess(true);
+          return response.data;
+        } else {
+          setError(response.error || 'Une erreur est survenue lors de la réservation');
+          return null;
+        }
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'Une erreur est survenue lors de la réservation';
+        setError(errorMessage);
         return null;
       } finally {
         setIsSubmitting(false);
       }
     },
-    [selectedSessions]
+    [fetch, selectedSessions]
   );
 
   return {
@@ -84,4 +102,3 @@ export function useBookSession() {
     bookSessions,
   };
 }
-
