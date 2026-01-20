@@ -184,6 +184,82 @@ export const fakeFetch: FetchInterface = async <T = unknown>(
     return { ok: true, data: newSession as T, status: 201 };
   }
 
+  // PUT /sessions/:id
+  if (method === 'PUT' && url.match(/^\/sessions\/[^/]+$/)) {
+    await delay(500);
+    const id = url.replace('/sessions/', '');
+    const sessionIndex = sessions.findIndex(s => s.id === id);
+
+    if (sessionIndex === -1) {
+      return { ok: false, error: 'Session introuvable', status: 404 };
+    }
+
+    const existingSession = sessions[sessionIndex];
+    const updateData = body as Partial<Session>;
+
+    // Règle métier: Ne peut pas modifier une session annulée (sauf pour la réactiver)
+    if (existingSession.status === 'cancelled' && updateData.status !== 'published') {
+      return { ok: false, error: 'Impossible de modifier une session annulée', status: 400 };
+    }
+
+    // Règle métier: Si on change la date/heure, elle doit être dans le futur
+    if (updateData.dateTime) {
+      const newDateTime = new Date(updateData.dateTime);
+      if (newDateTime <= new Date()) {
+        return { ok: false, error: 'La date/heure doit être dans le futur', status: 400 };
+      }
+    }
+
+    // Règle métier: Le prix doit être strictement supérieur à 0
+    if (updateData.price !== undefined && updateData.price <= 0) {
+      return { ok: false, error: 'Le prix doit être strictement supérieur à zéro', status: 400 };
+    }
+
+    // Règle métier: Le nombre de karts doit être strictement supérieur à 0
+    if (updateData.availableKarts !== undefined && updateData.availableKarts <= 0) {
+      return { ok: false, error: 'Le nombre de karts doit être strictement supérieur à zéro', status: 400 };
+    }
+
+    // Règle métier: Vérifier le chevauchement si la date/heure ou durée change
+    if (updateData.dateTime || updateData.duration) {
+      const newDateTime = updateData.dateTime ? new Date(updateData.dateTime) : new Date(existingSession.dateTime);
+      const newDuration = updateData.duration || existingSession.duration;
+
+      const hasOverlap = sessions.some(s => {
+        if (s.id === id) return false; // Ignorer la session elle-même
+        const sStart = new Date(s.dateTime).getTime();
+        const sEnd = sStart + s.duration * 60000;
+        const newStart = newDateTime.getTime();
+        const newEnd = newStart + newDuration * 60000;
+        return (newStart >= sStart && newStart < sEnd) || (newEnd > sStart && newEnd <= sEnd) || (newStart <= sStart && newEnd >= sEnd);
+      });
+
+      if (hasOverlap) {
+        return { ok: false, error: 'Le créneau est déjà occupé par une autre session', status: 409 };
+      }
+    }
+
+    // Règle métier: Ne peut pas annuler une session si des réservations sont confirmées
+    if (updateData.status === 'cancelled') {
+      const hasConfirmedBookings = bookings.some(
+        b => b.sessionIds.includes(id) && b.status === 'confirmed'
+      );
+      if (hasConfirmedBookings) {
+        return { ok: false, error: 'Impossible d\'annuler une session avec des réservations confirmées', status: 400 };
+      }
+    }
+
+    // Appliquer les modifications
+    const updatedSession: Session = {
+      ...existingSession,
+      ...updateData,
+      dateTime: updateData.dateTime ? new Date(updateData.dateTime) : existingSession.dateTime,
+    };
+
+    sessions[sessionIndex] = updatedSession;
+    return { ok: true, data: updatedSession as T, status: 200 };
+  }
+
   // ============ BOOKINGS ============
 
   // GET /bookings
