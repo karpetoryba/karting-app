@@ -15,6 +15,12 @@ export default function Index() {
         >
           <Text style={styles.buttonText}>Créer une session</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.button, styles.buttonStaffSecondary]}
+          onPress={() => router.push("/list-sessions")}
+        >
+          <Text style={styles.buttonText}>Voir les sessions</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.section}>
@@ -90,6 +96,10 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
+  },
+  buttonStaffSecondary: {
+    backgroundColor: "#0056b3",
+    marginTop: 10,
   },
   buttonTextDark: {
     color: "#333",
