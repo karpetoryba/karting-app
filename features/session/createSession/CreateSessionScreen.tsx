@@ -14,9 +14,8 @@ import { fakeFetch } from "../../../shared/fakeFetch";
 //import { realFetch } from "../../../shared/realFetch"; // Décommenter pour utiliser le vrai fetch
 import { useCreateSession } from "./useCreateSession";
 
-export default function CreateSessionScreen() {
-  const [dateTime, setDateTime] = useState("");
-  const [time, setTime] = useState("");
+export function CreateSessionComponent() {
+  const [dateHeureDebut, setDateHeureDebut] = useState("");
   const [duration, setDuration] = useState("");
   const [availableKarts, setAvailableKarts] = useState("");
   const [price, setPrice] = useState("");
@@ -27,7 +26,7 @@ export default function CreateSessionScreen() {
   });
 
   const handleCreateSession = async () => {
-    if (!dateTime || !time || !duration || !availableKarts || !price) {
+    if (!dateHeureDebut || !duration || !availableKarts || !price) {
       Alert.alert("Erreur", "Veuillez remplir tous les champs");
       return;
     }
@@ -54,7 +53,8 @@ export default function CreateSessionScreen() {
       return;
     }
 
-    const dateTimeString = `${dateTime}T${time}`;
+    // Format attendu: "YYYY-MM-DD HH:MM" => on remplace l'espace par T pour créer la Date
+    const dateTimeString = dateHeureDebut.replace(" ", "T");
     const sessionDateTime = new Date(dateTimeString);
 
     if (isNaN(sessionDateTime.getTime())) {
@@ -84,8 +84,7 @@ export default function CreateSessionScreen() {
         {
           text: "OK",
           onPress: () => {
-            setDateTime("");
-            setTime("");
+            setDateHeureDebut("");
             setDuration("");
             setAvailableKarts("");
             setPrice("");
@@ -106,37 +105,27 @@ export default function CreateSessionScreen() {
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
       {isSuccess ? (
         <Text style={styles.successText}>
-          Session créée et publiée avec succès.
+          Session créée avec succès
         </Text>
       ) : null}
 
       <View style={styles.formGroup}>
-        <Text style={styles.label}>Date *</Text>
+        <Text style={styles.label}>Date et heure de début *</Text>
         <TextInput
+          testID="test-input-dateHeureDebut"
           style={styles.input}
-          placeholder="YYYY-MM-DD"
-          value={dateTime}
-          onChangeText={setDateTime}
+          placeholder="YYYY-MM-DD HH:MM"
+          value={dateHeureDebut}
+          onChangeText={setDateHeureDebut}
           editable={!isLoading}
         />
-        <Text style={styles.hint}>Format: YYYY-MM-DD (ex: 2025-12-25)</Text>
-      </View>
-
-      <View style={styles.formGroup}>
-        <Text style={styles.label}>Heure *</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="HH:MM"
-          value={time}
-          onChangeText={setTime}
-          editable={!isLoading}
-        />
-        <Text style={styles.hint}>Format: HH:MM (ex: 14:30)</Text>
+        <Text style={styles.hint}>Format: YYYY-MM-DD HH:MM (ex: 2025-12-25 14:30)</Text>
       </View>
 
       <View style={styles.formGroup}>
         <Text style={styles.label}>Durée (minutes) *</Text>
         <TextInput
+          testID="test-input-duree"
           style={styles.input}
           placeholder="60"
           value={duration}
@@ -149,6 +138,7 @@ export default function CreateSessionScreen() {
       <View style={styles.formGroup}>
         <Text style={styles.label}>Nombre de karts disponibles *</Text>
         <TextInput
+          testID="test-input-nombreKartsDisponibles"
           style={styles.input}
           placeholder="10"
           value={availableKarts}
@@ -161,6 +151,7 @@ export default function CreateSessionScreen() {
       <View style={styles.formGroup}>
         <Text style={styles.label}>Prix (€) *</Text>
         <TextInput
+          testID="test-input-prix"
           style={styles.input}
           placeholder="50.00"
           value={price}
@@ -171,6 +162,7 @@ export default function CreateSessionScreen() {
       </View>
 
       <TouchableOpacity
+        testID="test-creer"
         style={[styles.button, isLoading && styles.buttonDisabled]}
         onPress={handleCreateSession}
         disabled={isLoading}
@@ -192,6 +184,8 @@ export default function CreateSessionScreen() {
     </ScrollView>
   );
 }
+
+export default CreateSessionComponent;
 
 const styles = StyleSheet.create({
   container: {
